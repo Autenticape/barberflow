@@ -1,0 +1,14 @@
+# Copie este arquivo para .env.local e preencha com os dados do seu projeto Supabase
+# (Settings > API no painel do Supabase)
+
+NEXT_PUBLIC_SUPABASE_URL=https://SEU-PROJETO.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=sua-chave-anon-publica-aqui
+
+# ATENÇÃO: chave SECRETA, com acesso total ao banco. NUNCA exponha no navegador,
+# NUNCA coloque em variável que comece com NEXT_PUBLIC_, NUNCA compartilhe esse valor.
+# Fica em Supabase > Settings > API > service_role
+SUPABASE_SERVICE_ROLE_KEY=sua-chave-secreta-aqui
+
+# E-mail que terá acesso ao painel de administração (você, dono do BarberFlow)
+ADMIN_EMAIL=seuemail@exemplo.com
+
