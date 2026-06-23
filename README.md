@@ -2,7 +2,7 @@
 
 Este guia assume que você nunca fez isso antes. Siga na ordem. Em caso de dúvida em
 qualquer passo, volte ao chat com o Claude e descreva exatamente onde travou — cole
-prints se possível.
+prints se possível. 
 
 Tempo estimado total: 1h30 a 3h na primeira vez.
 
