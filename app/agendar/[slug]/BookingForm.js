@@ -55,6 +55,14 @@ export default function BookingForm({ org, professionals, services }) {
     setSubmitting(true);
     setError("");
 
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!url || !key) {
+      setError("Variaveis ausentes: URL=" + url + " KEY=" + (key ? "ok" : "ausente"));
+      setSubmitting(false);
+      return;
+    }
+
     const { data: client, error: clientErr } = await supabase
       .from("clients")
       .insert({ org_id: org.id, name: name.trim(), phone: phone.trim() })
