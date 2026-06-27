@@ -62,7 +62,7 @@ export default function BookingForm({ org, professionals, services }) {
       .single();
 
     if (clientErr) {
-      setError("Não foi possível concluir o agendamento. Tente novamente.");
+      setError("Erro cliente: " + clientErr.message + " | codigo: " + clientErr.code);
       setSubmitting(false);
       return;
     }
@@ -78,7 +78,7 @@ export default function BookingForm({ org, professionals, services }) {
     });
 
     if (apptErr) {
-      setError("Esse horário acabou de ser ocupado. Escolha outro.");
+      setError("Erro agendamento: " + apptErr.message + " | codigo: " + apptErr.code);
       setSubmitting(false);
       await loadSlots();
       return;
