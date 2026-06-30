@@ -56,9 +56,7 @@ export default function DashboardShell({ org, children }) {
     setLoading(false);
   }, [org.id, supabase]);
 
-  useEffect(() => {
-    loadAll();
-  }, [loadAll]);
+  useEffect(() => { loadAll(); }, [loadAll]);
 
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 760);
@@ -91,9 +89,7 @@ export default function DashboardShell({ org, children }) {
       <div style={{ ...S.main, paddingBottom: isMobile ? 64 : 0 }}>
         <TopBar org={org} view={view} selectedDate={selectedDate} setSelectedDate={setSelectedDate} isMobile={isMobile} onLogout={handleLogout} />
         <div style={{ ...S.content, padding: isMobile ? "16px 14px" : "24px 28px" }}>
-          {view === "agenda" && (
-            <AgendaView ctx={ctx} selectedDate={selectedDate} activeProf={activeProf} setActiveProf={setActiveProf} isMobile={isMobile} />
-          )}
+          {view === "agenda" && <AgendaView ctx={ctx} selectedDate={selectedDate} activeProf={activeProf} setActiveProf={setActiveProf} isMobile={isMobile} />}
           {view === "clients" && <ClientsView ctx={ctx} />}
           {view === "finance" && <FinanceView ctx={ctx} />}
           {view === "stock" && <StockView ctx={ctx} />}
@@ -109,7 +105,6 @@ export default function DashboardShell({ org, children }) {
   );
 }
 
-// ---------- Sidebar / nav ----------
 function Sidebar({ view, setView, orgName, onLogout }) {
   const items = [
     { id: "agenda", label: "Agenda", icon: "📅" },
@@ -139,8 +134,7 @@ function Sidebar({ view, setView, orgName, onLogout }) {
         ))}
       </nav>
       <button onClick={onLogout} style={{ ...S.navItem, marginTop: 20, color: "#993C1D" }}>
-        <span style={{ fontSize: 16 }}>↩</span>
-        Sair
+        <span style={{ fontSize: 16 }}>↩</span>Sair
       </button>
     </div>
   );
@@ -198,7 +192,6 @@ function TopBar({ org, view, selectedDate, setSelectedDate, isMobile, onLogout }
   );
 }
 
-// ---------- Agenda ----------
 function AgendaView({ ctx, selectedDate, activeProf, setActiveProf, isMobile }) {
   const { supabase, org, professionals, clients, services, appointments, showToast, reload } = ctx;
   const [showModal, setShowModal] = useState(false);
@@ -209,90 +202,47 @@ function AgendaView({ ctx, selectedDate, activeProf, setActiveProf, isMobile }) 
   const weekday = new Date(selectedDate + "T12:00:00").getDay();
   const dayAppts = appointments.filter((a) => a.appt_date === selectedDate);
 
-  const openNew = (profId, time) => {
-    setSlotPrefill({ profId: profId || professionals[0]?.id || "", time: time || "09:00" });
-    setEditing(null);
-    setShowModal(true);
-  };
-  const openEdit = (appt) => {
-    setEditing(appt);
-    setSlotPrefill(null);
-    setShowModal(true);
-  };
+  const openNew = (profId, time) => { setSlotPrefill({ profId: profId || professionals[0]?.id || "", time: time || "09:00" }); setEditing(null); setShowModal(true); };
+  const openEdit = (appt) => { setEditing(appt); setSlotPrefill(null); setShowModal(true); };
 
   const saveAppt = async (data) => {
     let clientId = data.clientId;
     if (clientId.startsWith("__new__:")) {
       const name = clientId.slice("__new__:".length);
-      const { data: newClient, error } = await supabase
-        .from("clients").insert({ org_id: org.id, name, phone: "" }).select().single();
+      const { data: newClient, error } = await supabase.from("clients").insert({ org_id: org.id, name, phone: "" }).select().single();
       if (error) { showToast("Erro ao criar cliente"); return; }
       clientId = newClient.id;
     }
-
-    const payload = {
-      org_id: org.id,
-      client_id: clientId,
-      professional_id: data.profId,
-      service_id: data.serviceId,
-      appt_date: selectedDate,
-      appt_time: data.time,
-      deposit_paid: data.deposit,
-      notes: data.notes,
-    };
-
-    if (editing) {
-      await supabase.from("appointments").update(payload).eq("id", editing.id);
-    } else {
-      await supabase.from("appointments").insert({ ...payload, status: "confirmado" });
-    }
+    const payload = { org_id: org.id, client_id: clientId, professional_id: data.profId, service_id: data.serviceId, appt_date: selectedDate, appt_time: data.time, deposit_paid: data.deposit, notes: data.notes };
+    if (editing) await supabase.from("appointments").update(payload).eq("id", editing.id);
+    else await supabase.from("appointments").insert({ ...payload, status: "confirmado" });
     await reload();
     setShowModal(false);
     showToast(editing ? "Agendamento atualizado" : "Agendamento criado");
   };
 
-  const removeAppt = async (id) => {
-    await supabase.from("appointments").delete().eq("id", id);
-    await reload();
-    setShowModal(false);
-    showToast("Agendamento cancelado");
-  };
+  const removeAppt = async (id) => { await supabase.from("appointments").delete().eq("id", id); await reload(); setShowModal(false); showToast("Agendamento cancelado"); };
 
   const markDone = async (appt) => {
     const service = services.find((s) => s.id === appt.service_id);
     await supabase.from("appointments").update({ status: "concluido" }).eq("id", appt.id);
-    const { data: comanda } = await supabase.from("comandas").insert({
-      org_id: org.id, client_id: appt.client_id, professional_id: appt.professional_id,
-      appointment_id: appt.id, total: service?.price || 0, paid: false, comanda_date: appt.appt_date,
-    }).select().single();
-    if (comanda) {
-      await supabase.from("comanda_items").insert({
-        comanda_id: comanda.id, item_type: "service", ref_id: appt.service_id, qty: 1, unit_price: service?.price || 0,
-      });
-    }
+    const { data: comanda } = await supabase.from("comandas").insert({ org_id: org.id, client_id: appt.client_id, professional_id: appt.professional_id, appointment_id: appt.id, total: service?.price || 0, paid: false, comanda_date: appt.appt_date }).select().single();
+    if (comanda) await supabase.from("comanda_items").insert({ comanda_id: comanda.id, item_type: "service", ref_id: appt.service_id, qty: 1, unit_price: service?.price || 0 });
     await reload();
     showToast("Atendimento concluído. Comanda aberta no Financeiro.");
   };
 
-  if (professionals.length === 0) {
-    return <EmptyState title="Cadastre sua equipe primeiro" text="Para usar a agenda, adicione pelo menos um profissional em Equipe." />;
-  }
+  if (professionals.length === 0) return <EmptyState title="Cadastre sua equipe primeiro" text="Para usar a agenda, adicione pelo menos um profissional em Equipe." />;
 
   return (
     <div>
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
         <ProfPill active={activeProf === "all"} onClick={() => setActiveProf("all")} label="Todos" color="#5f5e5a" />
-        {professionals.map((p) => (
-          <ProfPill key={p.id} active={activeProf === p.id} onClick={() => setActiveProf(p.id)} label={p.name} color={p.color} />
-        ))}
+        {professionals.map((p) => <ProfPill key={p.id} active={activeProf === p.id} onClick={() => setActiveProf(p.id)} label={p.name} color={p.color} />)}
         {!isMobile && <div style={{ flex: 1 }} />}
-        <button style={{ ...S.primaryBtn, ...(isMobile ? { width: "100%" } : {}) }} onClick={() => openNew(activeProf !== "all" ? activeProf : null, null)}>
-          + Novo agendamento
-        </button>
+        <button style={{ ...S.primaryBtn, ...(isMobile ? { width: "100%" } : {}) }} onClick={() => openNew(activeProf !== "all" ? activeProf : null, null)}>+ Novo agendamento</button>
       </div>
-
       <div style={{ fontSize: 13, color: "#9a9588", marginBottom: 10 }}>{weekdayPT(selectedDate)}, {fmtDatePT(selectedDate)}</div>
-
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : `repeat(${profs.length}, 1fr)`, gap: 12 }}>
         {profs.map((prof) => {
           const hours = { start: prof.work_start?.slice(0,5), end: prof.work_end?.slice(0,5), lunchStart: prof.lunch_start?.slice(0,5), lunchEnd: prof.lunch_end?.slice(0,5) };
@@ -305,9 +255,7 @@ function AgendaView({ ctx, selectedDate, activeProf, setActiveProf, isMobile }) 
                 <span style={{ width: 8, height: 8, borderRadius: 99, background: prof.color }} />
                 <strong style={{ fontSize: 14 }}>{prof.name}</strong>
               </div>
-              {!working ? (
-                <div style={{ fontSize: 13, color: "#b0aca0", padding: "20px 0", textAlign: "center" }}>Folga hoje</div>
-              ) : (
+              {!working ? <div style={{ fontSize: 13, color: "#b0aca0", padding: "20px 0", textAlign: "center" }}>Folga hoje</div> : (
                 slots.map((slot) => {
                   const appt = profAppts.find((a) => a.appt_time?.slice(0, 5) === slot);
                   if (appt) {
@@ -323,37 +271,20 @@ function AgendaView({ ctx, selectedDate, activeProf, setActiveProf, isMobile }) 
                       </div>
                     );
                   }
-                  return (
-                    <div key={slot} onClick={() => openNew(prof.id, slot)} style={S.emptySlot}>
-                      <span style={{ fontSize: 11, color: "#c7c3b6" }}>{slot}</span>
-                    </div>
-                  );
+                  return <div key={slot} onClick={() => openNew(prof.id, slot)} style={S.emptySlot}><span style={{ fontSize: 11, color: "#c7c3b6" }}>{slot}</span></div>;
                 })
               )}
             </div>
           );
         })}
       </div>
-
-      {showModal && (
-        <ApptModal
-          professionals={professionals} clients={clients} services={services}
-          editing={editing} prefill={slotPrefill}
-          onClose={() => setShowModal(false)} onSave={saveAppt}
-          onDelete={editing ? () => removeAppt(editing.id) : null}
-          onMarkDone={editing && editing.status !== "concluido" ? () => markDone(editing) : null}
-        />
-      )}
+      {showModal && <ApptModal professionals={professionals} clients={clients} services={services} editing={editing} prefill={slotPrefill} onClose={() => setShowModal(false)} onSave={saveAppt} onDelete={editing ? () => removeAppt(editing.id) : null} onMarkDone={editing && editing.status !== "concluido" ? () => markDone(editing) : null} />}
     </div>
   );
 }
 
 function ProfPill({ active, onClick, label, color }) {
-  return (
-    <button onClick={onClick} style={{ ...S.pill, background: active ? color + "22" : "transparent", borderColor: active ? color : "#e4e1d6", color: active ? "#1c1b18" : "#7a7669", fontWeight: active ? 700 : 500 }}>
-      {label}
-    </button>
-  );
+  return <button onClick={onClick} style={{ ...S.pill, background: active ? color + "22" : "transparent", borderColor: active ? color : "#e4e1d6", color: active ? "#1c1b18" : "#7a7669", fontWeight: active ? 700 : 500 }}>{label}</button>;
 }
 
 function ApptModal({ professionals, clients, services, editing, prefill, onClose, onSave, onDelete, onMarkDone }) {
@@ -379,20 +310,10 @@ function ApptModal({ professionals, clients, services, editing, prefill, onClose
           <option value="">Selecione...</option>
           {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
-        {!clientId && (
-          <input placeholder="ou digite o nome de um cliente novo" value={newClientName} onChange={(e) => setNewClientName(e.target.value)} style={{ ...S.input, marginTop: 6 }} />
-        )}
+        {!clientId && <input placeholder="ou digite o nome de um cliente novo" value={newClientName} onChange={(e) => setNewClientName(e.target.value)} style={{ ...S.input, marginTop: 6 }} />}
       </Field>
-      <Field label="Profissional">
-        <select value={profId} onChange={(e) => setProfId(e.target.value)} style={S.select}>
-          {professionals.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </select>
-      </Field>
-      <Field label="Serviço">
-        <select value={serviceId} onChange={(e) => setServiceId(e.target.value)} style={S.select}>
-          {services.map((s) => <option key={s.id} value={s.id}>{s.name} — {fmtMoney(s.price)} ({s.duration_minutes}min)</option>)}
-        </select>
-      </Field>
+      <Field label="Profissional"><select value={profId} onChange={(e) => setProfId(e.target.value)} style={S.select}>{professionals.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></Field>
+      <Field label="Serviço"><select value={serviceId} onChange={(e) => setServiceId(e.target.value)} style={S.select}>{services.map((s) => <option key={s.id} value={s.id}>{s.name} — {fmtMoney(s.price)} ({s.duration_minutes}min)</option>)}</select></Field>
       <Field label="Horário"><input type="time" value={time} onChange={(e) => setTime(e.target.value)} style={S.input} /></Field>
       <Field label="Observações"><input value={notes} onChange={(e) => setNotes(e.target.value)} style={S.input} /></Field>
       <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#5f5e5a", margin: "10px 0 4px" }}>
@@ -408,7 +329,6 @@ function ApptModal({ professionals, clients, services, editing, prefill, onClose
   );
 }
 
-// ---------- Waitlist ----------
 function WaitlistView({ ctx }) {
   const { supabase, org, services, waitlist, showToast, reload } = ctx;
   const [name, setName] = useState("");
@@ -423,29 +343,18 @@ function WaitlistView({ ctx }) {
     showToast("Adicionado à lista de espera");
   };
 
-  const remove = async (id) => {
-    await supabase.from("waitlist").delete().eq("id", id);
-    await reload();
-  };
+  const remove = async (id) => { await supabase.from("waitlist").delete().eq("id", id); await reload(); };
 
   return (
     <div>
-      <p style={{ fontSize: 13, color: "#7a7669", marginBottom: 16, maxWidth: 520 }}>
-        Quando não houver horário disponível, adicione o cliente aqui. Assim que vagar um horário, avise quem está na lista — sem perder a venda.
-      </p>
+      <p style={{ fontSize: 13, color: "#7a7669", marginBottom: 16, maxWidth: 520 }}>Quando não houver horário disponível, adicione o cliente aqui.</p>
       <div style={{ ...S.card, marginBottom: 20, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
         <Field label="Nome" inline><input value={name} onChange={(e) => setName(e.target.value)} style={S.input} /></Field>
         <Field label="Telefone" inline><input value={phone} onChange={(e) => setPhone(e.target.value)} style={S.input} /></Field>
-        <Field label="Serviço desejado" inline>
-          <select value={serviceId} onChange={(e) => setServiceId(e.target.value)} style={S.select}>
-            {services.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
-        </Field>
+        <Field label="Serviço desejado" inline><select value={serviceId} onChange={(e) => setServiceId(e.target.value)} style={S.select}>{services.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
         <button style={S.primaryBtn} onClick={add}>Adicionar</button>
       </div>
-      {waitlist.length === 0 ? (
-        <EmptyState title="Lista vazia" text="Ninguém está esperando horário no momento." />
-      ) : (
+      {waitlist.length === 0 ? <EmptyState title="Lista vazia" text="Ninguém está esperando horário no momento." /> : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {waitlist.map((w) => {
             const service = services.find((s) => s.id === w.service_id);
@@ -465,7 +374,6 @@ function WaitlistView({ ctx }) {
   );
 }
 
-// ---------- Clients ----------
 function ClientsView({ ctx }) {
   const { supabase, org, clients, appointments, services, showToast, reload } = ctx;
   const [search, setSearch] = useState("");
@@ -482,12 +390,7 @@ function ClientsView({ ctx }) {
     showToast(editing ? "Cliente atualizado" : "Cliente cadastrado");
   };
 
-  const remove = async (id) => {
-    await supabase.from("clients").delete().eq("id", id);
-    await reload();
-    setShowModal(false);
-  };
-
+  const remove = async (id) => { await supabase.from("clients").delete().eq("id", id); await reload(); setShowModal(false); };
   const history = (clientId) => appointments.filter((a) => a.client_id === clientId).sort((a, b) => (a.appt_date < b.appt_date ? 1 : -1));
 
   return (
@@ -497,9 +400,7 @@ function ClientsView({ ctx }) {
         <div style={{ flex: 1 }} />
         <button style={S.primaryBtn} onClick={() => { setEditing(null); setShowModal(true); }}>+ Novo cliente</button>
       </div>
-      {filtered.length === 0 ? (
-        <EmptyState title="Nenhum cliente" text="Cadastre seu primeiro cliente para começar." />
-      ) : (
+      {filtered.length === 0 ? <EmptyState title="Nenhum cliente" text="Cadastre seu primeiro cliente para começar." /> : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {filtered.map((c) => (
             <div key={c.id} style={S.listRow} onClick={() => { setEditing(c); setShowModal(true); }}>
@@ -548,7 +449,6 @@ function ClientForm({ editing, onSave, onDelete }) {
   );
 }
 
-// ---------- Finance ----------
 function FinanceView({ ctx }) {
   const { supabase, org, comandas, services, products, cashMovements, showToast, reload } = ctx;
   const [tab, setTab] = useState("comandas");
@@ -589,9 +489,7 @@ function FinanceView({ ctx }) {
         <TabBtn active={tab === "caixa"} onClick={() => setTab("caixa")} label="Caixa manual" />
       </div>
       {tab === "comandas" && (
-        openComandas.length === 0 ? (
-          <EmptyState title="Nenhuma comanda em aberto" text="Comandas aparecem aqui quando você conclui um atendimento na Agenda." />
-        ) : (
+        openComandas.length === 0 ? <EmptyState title="Nenhuma comanda em aberto" text="Comandas aparecem aqui quando você conclui um atendimento na Agenda." /> : (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {openComandas.map((c) => <ComandaCard key={c.id} comanda={c} ctx={ctx} onClose={closeComanda} onAddItem={addItemToComanda} />)}
           </div>
@@ -662,12 +560,7 @@ function CashManualView({ ctx }) {
       <div style={{ ...S.card, display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 16 }}>
         <Field label="Descrição" inline><input style={S.input} value={desc} onChange={(e) => setDesc(e.target.value)} /></Field>
         <Field label="Valor" inline><input style={S.input} value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0,00" /></Field>
-        <Field label="Tipo" inline>
-          <select style={S.select} value={type} onChange={(e) => setType(e.target.value)}>
-            <option value="saida">Saída</option>
-            <option value="entrada">Entrada</option>
-          </select>
-        </Field>
+        <Field label="Tipo" inline><select style={S.select} value={type} onChange={(e) => setType(e.target.value)}><option value="saida">Saída</option><option value="entrada">Entrada</option></select></Field>
         <button style={S.primaryBtn} onClick={add}>Lançar</button>
       </div>
       {todayMoves.length === 0 ? <EmptyState title="Nenhum lançamento manual hoje" text="Use isso para registrar despesas ou entradas fora das comandas." /> :
@@ -681,7 +574,6 @@ function CashManualView({ ctx }) {
   );
 }
 
-// ---------- Stock ----------
 function StockView({ ctx }) {
   const { supabase, org, products, showToast, reload } = ctx;
   const [showModal, setShowModal] = useState(false);
@@ -697,7 +589,6 @@ function StockView({ ctx }) {
 
   const remove = async (id) => { await supabase.from("products").delete().eq("id", id); await reload(); setShowModal(false); };
   const adjustStock = async (p, delta) => { await supabase.from("products").update({ stock: Math.max(0, p.stock + delta) }).eq("id", p.id); await reload(); };
-
   const lowStock = products.filter((p) => p.stock <= p.min_stock);
 
   return (
@@ -750,7 +641,6 @@ function ProductForm({ editing, onSave, onDelete }) {
   );
 }
 
-// ---------- Team ----------
 function TeamView({ ctx }) {
   const { supabase, org, professionals, showToast, reload } = ctx;
   const [showModal, setShowModal] = useState(false);
@@ -784,9 +674,7 @@ function TeamView({ ctx }) {
                   <span style={{ width: 10, height: 10, borderRadius: 99, background: p.color }} />
                   <div>
                     <div style={{ fontWeight: 600, fontSize: 14 }}>{p.name}</div>
-                    <div style={{ fontSize: 12, color: "#9a9588" }}>
-                      {p.work_start?.slice(0,5)}–{p.work_end?.slice(0,5)} · {(p.work_days || []).map((d) => WEEK_LABELS[d]).join(", ")}
-                    </div>
+                    <div style={{ fontSize: 12, color: "#9a9588" }}>{p.work_start?.slice(0,5)}–{p.work_end?.slice(0,5)} · {(p.work_days || []).map((d) => WEEK_LABELS[d]).join(", ")}</div>
                   </div>
                 </div>
               </div>
@@ -826,9 +714,7 @@ function ProfForm({ editing, onSave, onDelete }) {
       </Field>
       <Field label="Dias de trabalho">
         <div style={{ display: "flex", gap: 4 }}>
-          {WEEK_LABELS.map((label, idx) => (
-            <button key={idx} onClick={() => toggleDay(idx)} style={{ ...S.dayToggle, background: workDays.includes(idx) ? "#1c1b18" : "transparent", color: workDays.includes(idx) ? "#fff" : "#9a9588" }}>{label}</button>
-          ))}
+          {WEEK_LABELS.map((label, idx) => <button key={idx} onClick={() => toggleDay(idx)} style={{ ...S.dayToggle, background: workDays.includes(idx) ? "#1c1b18" : "transparent", color: workDays.includes(idx) ? "#fff" : "#9a9588" }}>{label}</button>)}
         </div>
       </Field>
       <div style={{ display: "flex", gap: 8 }}>
@@ -900,7 +786,6 @@ function ServiceForm({ editing, onSave, onDelete }) {
   );
 }
 
-// ---------- Reports ----------
 function ReportsView({ ctx }) {
   const { appointments, comandas, services, professionals, clients } = ctx;
 
@@ -940,7 +825,6 @@ function ReportsView({ ctx }) {
         <StatCard label="Clientes cadastrados" value={clients.length} />
       </div>
       <h3 style={S.sectionTitle}>Agendamentos por dia da semana</h3>
-      <p style={{ fontSize: 12, color: "#9a9588", marginTop: -8, marginBottom: 12 }}>Use isso para saber em quais dias vale a pena oferecer promoção.</p>
       <div style={{ display: "flex", gap: 10, alignItems: "flex-end", height: 120, marginBottom: 28 }}>
         {WEEK_LABELS.map((label, idx) => (
           <div key={idx} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
@@ -976,38 +860,90 @@ function ReportsView({ ctx }) {
 function SettingsView({ ctx }) {
   const { supabase, org, showToast } = ctx;
   const [shopName, setShopName] = useState(org.name);
+  const [description, setDescription] = useState(org.description || "");
+  const [address, setAddress] = useState(org.address || "");
+  const [phone, setPhone] = useState(org.phone || "");
+  const [primaryColor, setPrimaryColor] = useState(org.primary_color || "#1c1b18");
+  const [logoUrl, setLogoUrl] = useState(org.logo_url || "");
+  const [coverUrl, setCoverUrl] = useState(org.cover_url || "");
+  const [uploading, setUploading] = useState(false);
   const bookingUrl = typeof window !== "undefined" ? `${window.location.origin}/agendar/${org.slug}` : `/agendar/${org.slug}`;
 
   const save = async () => {
-    await supabase.from("organizations").update({ name: shopName }).eq("id", org.id);
-    showToast("Nome atualizado. Atualize a página para ver a mudança.");
+    await supabase.from("organizations").update({ name: shopName, description, address, phone, primary_color: primaryColor, logo_url: logoUrl, cover_url: coverUrl }).eq("id", org.id);
+    showToast("Ajustes salvos! Atualize a página para ver as mudanças.");
   };
 
-  const copyLink = () => {
-    navigator.clipboard.writeText(bookingUrl);
-    showToast("Link copiado!");
+  const uploadImage = async (e, type) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploading(true);
+    const ext = file.name.split(".").pop();
+    const path = `${org.id}/${type}-${Date.now()}.${ext}`;
+    const { error } = await supabase.storage.from("org-assets").upload(path, file, { upsert: true });
+    if (error) { showToast("Erro ao fazer upload: " + error.message); setUploading(false); return; }
+    const { data } = supabase.storage.from("org-assets").getPublicUrl(path);
+    if (type === "logo") setLogoUrl(data.publicUrl);
+    if (type === "cover") setCoverUrl(data.publicUrl);
+    setUploading(false);
+    showToast("Imagem enviada!");
   };
+
+  const colors = ["#1c1b18", "#1D9E75", "#378ADD", "#D85A30", "#D4537E", "#7F77DD", "#BA7517", "#993C1D"];
 
   return (
-    <div style={{ maxWidth: 480 }}>
-      <Field label="Nome da barbearia">
-        <input style={S.input} value={shopName} onChange={(e) => setShopName(e.target.value)} />
+    <div style={{ maxWidth: 520 }}>
+      <h3 style={S.sectionTitle}>Informações da barbearia</h3>
+      <Field label="Nome da barbearia"><input style={S.input} value={shopName} onChange={(e) => setShopName(e.target.value)} /></Field>
+      <Field label="Descrição (aparece na página de agendamento)">
+        <textarea style={{ ...S.input, minHeight: 70 }} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Ex: Barbearia especializada em cortes modernos e clássicos." />
       </Field>
-      <button style={S.primaryBtn} onClick={save}>Salvar</button>
+      <Field label="Endereço"><input style={S.input} value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Ex: Rua das Flores, 123 - Centro" /></Field>
+      <Field label="Telefone / WhatsApp"><input style={S.input} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(00) 00000-0000" /></Field>
+
+      <h3 style={{ ...S.sectionTitle, marginTop: 24 }}>Aparência</h3>
+      <Field label="Cor principal">
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          {colors.map((c) => (
+            <div key={c} onClick={() => setPrimaryColor(c)} style={{ width: 30, height: 30, borderRadius: 99, background: c, cursor: "pointer", border: primaryColor === c ? "3px solid #555" : "3px solid transparent", boxSizing: "border-box" }} />
+          ))}
+          <input type="color" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} style={{ width: 30, height: 30, borderRadius: 99, border: "none", cursor: "pointer", padding: 0 }} title="Cor personalizada" />
+        </div>
+        <div style={{ fontSize: 12, color: "#9a9588", marginTop: 6 }}>Cor selecionada: <span style={{ fontWeight: 700, color: primaryColor }}>{primaryColor}</span></div>
+      </Field>
+
+      <Field label="Logo da barbearia">
+        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          {logoUrl && <img src={logoUrl} alt="Logo" style={{ width: 56, height: 56, borderRadius: 12, objectFit: "cover", border: "1px solid #ece9de" }} />}
+          <label style={{ ...S.secondaryBtn, cursor: "pointer" }}>
+            {uploading ? "Enviando..." : "Escolher imagem"}
+            <input type="file" accept="image/*" onChange={(e) => uploadImage(e, "logo")} style={{ display: "none" }} />
+          </label>
+        </div>
+      </Field>
+
+      <Field label="Foto de capa">
+        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          {coverUrl && <img src={coverUrl} alt="Capa" style={{ width: 120, height: 56, borderRadius: 8, objectFit: "cover", border: "1px solid #ece9de" }} />}
+          <label style={{ ...S.secondaryBtn, cursor: "pointer" }}>
+            {uploading ? "Enviando..." : "Escolher imagem"}
+            <input type="file" accept="image/*" onChange={(e) => uploadImage(e, "cover")} style={{ display: "none" }} />
+          </label>
+        </div>
+      </Field>
+
+      <button style={{ ...S.primaryBtn, marginTop: 16 }} onClick={save}>Salvar ajustes</button>
 
       <div style={{ marginTop: 28, padding: 16, background: "#faf8f2", borderRadius: 12 }}>
         <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>Link de agendamento para seus clientes</div>
         <div style={{ fontSize: 13, color: "#5f5e5a", wordBreak: "break-all", marginBottom: 10 }}>{bookingUrl}</div>
-        <button style={S.secondaryBtn} onClick={copyLink}>Copiar link</button>
-        <p style={{ fontSize: 12, color: "#9a9588", marginTop: 10 }}>
-          Compartilhe esse link no seu Instagram ou WhatsApp — seus clientes marcam horário sozinhos, sem precisar de login.
-        </p>
+        <button style={S.secondaryBtn} onClick={() => { navigator.clipboard.writeText(bookingUrl); showToast("Link copiado!"); }}>Copiar link</button>
+        <p style={{ fontSize: 12, color: "#9a9588", marginTop: 10 }}>Compartilhe esse link no seu Instagram ou WhatsApp — seus clientes marcam horário sozinhos, sem precisar de login.</p>
       </div>
     </div>
   );
 }
 
-// ---------- shared bits ----------
 function Modal({ children, onClose, title }) {
   return (
     <div style={S.modalOverlay} onClick={onClose}>
@@ -1021,6 +957,7 @@ function Modal({ children, onClose, title }) {
     </div>
   );
 }
+
 function Field({ label, children, inline }) {
   return (
     <div style={{ marginBottom: inline ? 0 : 12, minWidth: inline ? 140 : undefined }}>
@@ -1029,6 +966,7 @@ function Field({ label, children, inline }) {
     </div>
   );
 }
+
 function EmptyState({ title, text }) {
   return (
     <div style={{ textAlign: "center", padding: "60px 20px", color: "#b0aca0" }}>
@@ -1037,6 +975,7 @@ function EmptyState({ title, text }) {
     </div>
   );
 }
+
 function StatCard({ label, value }) {
   return (
     <div style={{ background: "#faf8f2", borderRadius: 12, padding: "14px 16px" }}>
@@ -1045,6 +984,7 @@ function StatCard({ label, value }) {
     </div>
   );
 }
+
 function TabBtn({ active, onClick, label }) {
   return (
     <button onClick={onClick} style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid " + (active ? "#1c1b18" : "#e4e1d6"), background: active ? "#1c1b18" : "transparent", color: active ? "#fff" : "#5f5e5a", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
@@ -1053,7 +993,6 @@ function TabBtn({ active, onClick, label }) {
   );
 }
 
-// ---------- styles ----------
 const S = {
   app: { display: "flex", minHeight: "100vh", background: "#fcfaf5", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", color: "#1c1b18" },
   sidebar: { width: 220, background: "#fff", borderRight: "1px solid #ece9de", padding: "20px 14px", flexShrink: 0 },
